@@ -1,0 +1,10 @@
+{
+    "network":["mobilenet"],
+    "test":"profile",
+    "dry_run":5,
+    "iteration":1,
+    "level":"forward",
+    "dev":"cpu",
+    "batch_size":[1],
+    "out_dir":"./out"
+}
