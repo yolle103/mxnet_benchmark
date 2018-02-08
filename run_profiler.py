@@ -50,11 +50,11 @@ def run_profiler(network, batch_size, dev, iteration, dry_run):
         sym, data_shape = get_ssd_symbol(network, batch_size)
     else:
         sym, data_shape = get_symbol(network, batch_size)
-    print data_shape
     mod = mx.mod.Module(symbol=sym, context=dev)
     mod.bind(for_training     = True,
              inputs_need_grad = False,
-             data_shapes      = data_shape)
+             data_shapes      = data_shape,
+             label_shapes = [('softmax_label',(batch_size,1000))])
     mod.init_params(initializer=mx.init.Xavier(magnitude=2.))
     mod.init_optimizer(optimizer='ccsgd',
                        optimizer_params={
@@ -64,8 +64,8 @@ def run_profiler(network, batch_size, dev, iteration, dry_run):
                         })
     # gen data label
     data = [mx.random.uniform(-1.0, 1.0, shape=shape, ctx=dev) for _, shape in mod.data_shapes]
-    # label = [mx.nd.array(np.random.randint(1, 100, size=shape), ctx=ctx) for _, shape in mod.label_shapes]
-    batch = mx.io.DataBatch(data, [])
+    label = [mx.nd.array(np.random.randint(1, 100, size=shape), ctx=dev) for _, shape in mod.label_shapes]
+    batch = mx.io.DataBatch(data, label)
 
 
     # dry run

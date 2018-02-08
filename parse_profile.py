@@ -57,6 +57,7 @@ def get_profile_data(config):
     interals = sym.get_internals()
     _, out_shapes, _ = interals.infer_shape(data=(batch_size,3,299,299))
     shape_dict = dict(zip(interals.list_outputs(), out_shapes))
+    print shape_dict
     # match shape with profiler result
     profile_filename = 'profile.json'
     with open(profile_filename, 'r') as f:
