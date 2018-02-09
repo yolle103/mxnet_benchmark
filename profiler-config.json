@@ -1,9 +1,10 @@
 {
-    "network":"mobilenet",
+    "network":"ssd.vgg16_reduced",
     "test":"profile",
-    "dry_run":5,
+    "dry_run":0,
     "iteration":1,
     "dev":"cpu",
-    "batch_size":32,
-    "out_dir":"./out"
+    "batch_size":1,
+    "out_dir":"./out",
+    "weight":"weight_dir"
 }

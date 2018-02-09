@@ -41,8 +41,18 @@ def get_ssd_symbol(network, batch_size):
     if 'resnet' in network:
         image_shape = (3, 224, 224)
     base_name = network.split('.')[-1]
-    sym = symbol_factory.get_symbol(network, 20)
+    sym = symbol_factory.get_symbol(network, 1000)
+    with open('ssd.json', 'w') as f:
+        f.write(sym.tojson())
+        f.close()
+
     return (sym, [('data', (batch_size,)+image_shape)])
+
+def get_data():
+    #TODO get data according to config
+    #both dummy and load from file
+    pass
+
 
 def run_profiler(network, batch_size, dev, iteration, dry_run):
     # get mod
@@ -50,39 +60,43 @@ def run_profiler(network, batch_size, dev, iteration, dry_run):
         sym, data_shape = get_ssd_symbol(network, batch_size)
     else:
         sym, data_shape = get_symbol(network, batch_size)
+    with open('{}.json'.format(network), 'w') as f:
+        f.write(sym.tojson())
+        f.close()
     mod = mx.mod.Module(symbol=sym, context=dev)
     mod.bind(for_training     = True,
              inputs_need_grad = False,
-             data_shapes      = data_shape,
-             label_shapes = [('softmax_label',(batch_size,1000))])
+             data_shapes      = data_shape)
+
     mod.init_params(initializer=mx.init.Xavier(magnitude=2.))
-    mod.init_optimizer(optimizer='ccsgd',
-                       optimizer_params={
-                            'learning_rate': 0.0001,
-                            'momentum': 0.0,
-                            'wd': 0.0
-                        })
+    # mod.init_optimizer(optimizer='ccsgd',
+    #                    optimizer_params={
+    #                         'learning_rate': 0.0001,
+    #                         'momentum': 0.0,
+    #                         'wd': 0.0
+    #                     })
     # gen data label
     data = [mx.random.uniform(-1.0, 1.0, shape=shape, ctx=dev) for _, shape in mod.data_shapes]
-    label = [mx.nd.array(np.random.randint(1, 100, size=shape), ctx=dev) for _, shape in mod.label_shapes]
-    batch = mx.io.DataBatch(data, label)
+    # label = [mx.nd.array(np.random.randint(1, 100, size=shape), ctx=dev) for _, shape in mod.label_shapes]
+    # batch = mx.io.DataBatch(data, label)
+    batch = mx.io.DataBatch(data, [])
 
 
     # dry run
     for i in xrange(dry_run):
-        mod.forward(batch, is_train=True)
-        mod.backward()
+        mod.forward(batch, is_train=False)
+        # mod.backward()
         for output in mod.get_outputs():
             output.wait_to_read()
-        mod.update()
+        # mod.update()
 
     #real run
     for i in xrange(iteration):
-        mod.forward(batch, is_train=True)
-        mod.backward()
+        mod.forward(batch, is_train=False)
+        # mod.backward()
         for output in mod.get_outputs():
             output.wait_to_read()
-        mod.update()
+        # mod.update()
 
 def run_profile_test(config):
     network = config['network']

@@ -57,7 +57,6 @@ def get_profile_data(config):
     interals = sym.get_internals()
     _, out_shapes, _ = interals.infer_shape(data=(batch_size,3,299,299))
     shape_dict = dict(zip(interals.list_outputs(), out_shapes))
-    print shape_dict
     # match shape with profiler result
     profile_filename = 'profile.json'
     with open(profile_filename, 'r') as f:
@@ -68,9 +67,11 @@ def get_profile_data(config):
     #did not consider all possibilities
     profile_list = [d for d in profile if not 'args' in d and not d['name'] in other_type]
 
-
+    profile_list_str = json.dumps(profile_list, indent = 2)
+    with open('clean_profile.json', 'w') as f:
+        f.write(profile_list_str)
+        f.close()
     i = 0
-    print len(profile_list)
     #TODO find other way to do this!
     layer_type_count = {}
     layer_profile = []
@@ -91,37 +92,77 @@ def get_profile_data(config):
                     return layer['attrs']
                 else:
                     return None
+
+    def get_layer_name(topo, layer_type, layer_count):
+        print layer_type, layer_count
+        i = 0
+        count = 0
+        while i < len(topo) - 1:
+            if topo[i]['op'] == layer_type:
+                if count == layer_count:
+                    print topo[i]
+                    print layer_type, layer_count
+                    return topo[i]['name']
+                else:
+                    count += 1
+            i += 1
+        return None
+
     #profile position
+
     pos = 0
+    #dry run posotion
+    print len(topo)
+    print len(profile_list)
+    print '------------'
+    pos += dry_run * len(topo) * 2
+    with open('profile_list.json', 'w') as f:
+        f.write(json.dumps(profile_list, indent = 2))
+    with open('topo.json', 'w') as f:
+        f.write(json.dumps(topo, indent=2))
 
-
-    for it in xrange(iteration):
-        #forward
-        for layer in topo:
-            start = profile_list[pos]
-            end = profile_list[pos+1]
-            time = int(end['ts']) - int(start['ts'])
-            layer_type = start['name']
-            layer_name = layer['name']
-            shape = get_input_shape(layer_name, shape_dict, topo)
-            layer_config = get_layer_config(layer_name, topo)
-            layer_profile.append({'iteration':it, 'layer_name':layer_name, \
-            'layer_type':layer_type, 'time':time, 'shape':shape, 'config':layer_config})
-            pos += 2
+    #TODO only a temporary solution
+    # for it in xrange(iteration):
+    #     #forward
+    #     for layer in topo:
+    #         start = profile_list[pos]
+    #         end = profile_list[pos+1]
+    #         time = int(end['ts']) - int(start['ts'])
+    #         layer_type = start['name']
+    #         layer_name = layer['name']
+    #         shape = get_input_shape(layer_name, shape_dict, topo)
+    #         layer_config = get_layer_config(layer_name, topo)
+    #         layer_profile.append({'iteration':it, 'layer_name':layer_name, \
+    #         'layer_type':layer_type, 'time':time, 'shape':shape, 'config':layer_config})
+    #         pos += 2
         #backward TODO optimize code
-        for layer in topo[::-1]:
-            start = profile_list[pos]
-            end = profile_list[pos+1]
-            time = int(end['ts']) - int(start['ts'])
-            layer_type = start['name']
-            layer_name = layer['name']
-            shape = get_input_shape(layer_name, shape_dict, topo)
-            layer_config = get_layer_config(layer_name, topo)
-            layer_profile.append({'iteration':it, 'layer_name':layer_name, \
-            'layer_type':layer_type, 'time':time, 'shape':shape, 'config':layer_config})
-            pos += 2
+#        for layer in topo[::-1]:
+#            start = profile_list[pos]
+#            end = profile_list[pos+1]
+#            time = int(end['ts']) - int(start['ts'])
+#            layer_type = start['name']
+#            layer_name = layer['name']
+#            shape = get_input_shape(layer_name, shape_dict, topo)
+#            layer_config = get_layer_config(layer_name, topo)
+#            layer_profile.append({'iteration':it, 'layer_name':layer_name, \
+#            'layer_type':layer_type, 'time':time, 'shape':shape, 'config':layer_config})
+#            pos += 2
 
-    json_str = json.dumps(layer_profile, indent = 2)
+    profile_pos = 0
+    layer_type_count = {}
+    while profile_pos < len(profile_list) - 1:
+        start = profile_list[profile_pos]
+        end = profile_list[profile_pos+1]
+        time = int(end['ts']) - int(start['ts'])
+        layer_type = start['name']
+        if not layer_type in layer_type_count:
+            layer_type_count[layer_type] = time
+        else:
+            layer_type_count[layer_type] += time
+        profile_pos += 2
+
+    result = {'result':layer_type_count, 'config':config, 'time':'ms'}
+    json_str = json.dumps(result, indent = 2)
     result_file_path = os.path.join(out_dir, '{}-{}.json'.format(network, batch_size))
     with open(result_file_path, 'w') as f:
         f.write(json_str)
